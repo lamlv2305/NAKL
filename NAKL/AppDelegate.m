@@ -52,40 +52,14 @@ static bool frontmostAppApiCompatible = false;
         frontmostAppApiCompatible = true;
     }
     
-    BOOL accessibilityEnabled = YES;
-    
-    if (AXIsProcessTrustedWithOptions != NULL) {
-        NSDictionary *options = @{(id) kAXTrustedCheckOptionPrompt: @NO};
-        accessibilityEnabled  = AXIsProcessTrustedWithOptions((CFDictionaryRef)options);
-    } else {
-        accessibilityEnabled = AXAPIEnabled();
-    }
-    
-    if (!accessibilityEnabled) {
-        NSString* path = [[NSBundle mainBundle] pathForResource:@"EnableAssistiveDevices" ofType:@"scpt"];
-        if (path != nil)
-        {
-            NSURL* url = [NSURL fileURLWithPath:path];
-            if (url != nil)
-            {
-                NSDictionary* errors       = [NSDictionary dictionary];
-                NSAppleScript* appleScript = [[NSAppleScript alloc] initWithContentsOfURL:url error:&errors];
-                if (appleScript != nil)
-                {
-                    [appleScript executeAndReturnError:nil];
-                    [appleScript release];
-                } else {
-                    
-                }
-            }
-        } else {
-            NSLog(@"Can't find EnableAssistiveDevices.scpt script");
-        }
-    }
+    // Note: We'll check accessibility permissions when creating the event tap
+    // This allows for proper permission prompting on modern macOS versions
 }
 
 - (void)applicationWillFinishLaunching:(NSNotification *)aNotification
 {
+    NSLog(@"NAKL starting up...");
+    
     preferencesController = [[PreferencesController alloc] init];
     
     [AppData loadUserPrefs];
@@ -100,9 +74,32 @@ static bool frontmostAppApiCompatible = false;
     
     kbHandler = [[KeyboardHandler alloc] init];
     kbHandler.kbMethod = method;
-    [self performSelectorInBackground:@selector(eventLoop) withObject:nil];
+    
+    // Delay the event loop creation slightly to ensure proper initialization
+    // This is especially important for standalone apps
+    [self performSelector:@selector(startEventLoop) withObject:nil afterDelay:0.5];
     
     [self updateStatusItem];
+}
+
+- (void)startEventLoop {
+    NSLog(@"Starting event loop in background...");
+    [self performSelectorInBackground:@selector(eventLoop) withObject:nil];
+}
+
+- (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
+    NSLog(@"NAKL finished launching");
+    NSLog(@"Bundle ID: %@", [[NSBundle mainBundle] bundleIdentifier]);
+    NSLog(@"Version: %@", [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleShortVersionString"]);
+    NSLog(@"Running from: %@", [[NSBundle mainBundle] bundlePath]);
+    
+    // Check if we're running in development or production
+    NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
+    if ([bundlePath containsString:@"DerivedData"]) {
+        NSLog(@"Running in development mode (Xcode)");
+    } else {
+        NSLog(@"Running in production mode (standalone)");
+    }
 }
 
 -(void)awakeFromNib {
@@ -296,6 +293,55 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
     CGEventMask        eventMask;
     CFRunLoopSourceRef runLoopSource;
     
+    NSLog(@"Starting event loop - checking accessibility permissions...");
+    
+    // Check accessibility permissions first WITHOUT prompting
+    BOOL accessibilityEnabled = NO;
+    
+    if (AXIsProcessTrustedWithOptions != NULL) {
+        // For macOS 10.9 and later - check without prompting first
+        NSDictionary *options = @{(id) kAXTrustedCheckOptionPrompt: @NO};
+        accessibilityEnabled = AXIsProcessTrustedWithOptions((CFDictionaryRef)options);
+        NSLog(@"Accessibility permissions check (modern): %@", accessibilityEnabled ? @"GRANTED" : @"DENIED");
+    } else {
+        // For older macOS versions
+        accessibilityEnabled = AXAPIEnabled();
+        NSLog(@"Accessibility permissions check (legacy): %@", accessibilityEnabled ? @"GRANTED" : @"DENIED");
+    }
+    
+    if (!accessibilityEnabled) {
+        NSLog(@"NAKL requires accessibility permissions to function properly.");
+        NSLog(@"Showing one-time setup dialog to user...");
+        
+        // Show our single, clear setup dialog
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSAlert *alert = [[NSAlert alloc] init];
+            [alert setMessageText:@"Welcome to NAKL"];
+            [alert setInformativeText:@"NAKL is a Vietnamese keyboard input method that needs permission to monitor keyboard events.\n\nTo enable NAKL:\n\n1. Click 'Open System Preferences' below\n2. Go to Security & Privacy → Privacy → Accessibility\n3. Click the lock icon and enter your password\n4. Find NAKL in the list and check the box next to it\n\nNAKL will start working automatically once you enable it."];
+            [alert addButtonWithTitle:@"Open System Preferences"];
+            [alert addButtonWithTitle:@"I'll Do It Later"];
+            [alert addButtonWithTitle:@"Quit"];
+            
+            NSModalResponse response = [alert runModal];
+            [alert release];
+            
+            if (response == NSAlertFirstButtonReturn) {
+                // Open System Preferences to Accessibility panel
+                [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"]];
+                // Start checking for permission in background
+                [self performSelector:@selector(retryEventTapCreation) withObject:nil afterDelay:3.0];
+            } else if (response == NSAlertSecondButtonReturn) {
+                // User will do it later, start checking periodically
+                [self performSelector:@selector(retryEventTapCreation) withObject:nil afterDelay:10.0];
+            } else {
+                [NSApp terminate:self];
+            }
+        });
+        return;
+    }
+    
+    NSLog(@"Accessibility permissions granted, attempting to create event tap...");
+    
     eventMask = ((1 << kCGEventKeyDown) | (1 << kCGEventKeyUp) |
                  (1 << kCGEventLeftMouseDown) |
                  (1 << kCGEventRightMouseDown) |
@@ -305,14 +351,62 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
     eventTap = CGEventTapCreate(kCGSessionEventTap, kCGHeadInsertEventTap, 0,
                                 eventMask, KeyHandler, self);
     if (!eventTap) {
-        fprintf(stderr, "failed to create event tap\n");
-        exit(1);
+        NSLog(@"Failed to create event tap. This usually means accessibility permissions are not properly granted.");
+        NSLog(@"Bundle identifier: %@", [[NSBundle mainBundle] bundleIdentifier]);
+        NSLog(@"Executable path: %@", [[NSBundle mainBundle] executablePath]);
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSAlert *alert = [[NSAlert alloc] init];
+            [alert setMessageText:@"Permission Issue"];
+            [alert setInformativeText:@"NAKL still can't access keyboard events. This usually means:\n\n• Accessibility permission isn't properly enabled\n• The app needs to be restarted after enabling permission\n• macOS needs a moment to apply the changes\n\nPlease check System Preferences again and restart NAKL if needed."];
+            [alert addButtonWithTitle:@"Open System Preferences"];
+            [alert addButtonWithTitle:@"Retry Now"];
+            [alert addButtonWithTitle:@"Quit"];
+            
+            NSModalResponse response = [alert runModal];
+            [alert release];
+            
+            if (response == NSAlertFirstButtonReturn) {
+                [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"]];
+                [self performSelector:@selector(retryEventTapCreation) withObject:nil afterDelay:2.0];
+            } else if (response == NSAlertSecondButtonReturn) {
+                [self performSelector:@selector(retryEventTapCreation) withObject:nil afterDelay:1.0];
+            } else {
+                [NSApp terminate:self];
+            }
+        });
+        return;
     }
+    
+    NSLog(@"Event tap created successfully. NAKL is now active.");
     
     runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0);
     CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
     CGEventTapEnable(eventTap, true);
     CFRunLoopRun();
+}
+
+- (void) retryEventTapCreation {
+    // Check if accessibility permissions have been granted (without prompting)
+    BOOL accessibilityEnabled = NO;
+    
+    if (AXIsProcessTrustedWithOptions != NULL) {
+        NSDictionary *options = @{(id) kAXTrustedCheckOptionPrompt: @NO};
+        accessibilityEnabled = AXIsProcessTrustedWithOptions((CFDictionaryRef)options);
+    } else {
+        accessibilityEnabled = AXAPIEnabled();
+    }
+    
+    NSLog(@"Retry permission check: %@", accessibilityEnabled ? @"GRANTED" : @"DENIED");
+    
+    if (accessibilityEnabled && !eventTap) {
+        NSLog(@"Accessibility permissions granted, attempting to create event tap...");
+        [self performSelectorInBackground:@selector(eventLoop) withObject:nil];
+    } else if (!accessibilityEnabled) {
+        // Schedule another check in 3 seconds (without showing alerts)
+        NSLog(@"Still waiting for accessibility permissions...");
+        [self performSelector:@selector(retryEventTapCreation) withObject:nil afterDelay:3.0];
+    }
 }
 
 #pragma mark GUI
