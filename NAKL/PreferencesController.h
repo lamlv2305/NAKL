@@ -30,10 +30,10 @@
     IBOutlet NSTableView *shortcutsTableView;
 }
 
-@property (nonatomic, readwrite, retain) IBOutlet SRRecorderControl *toggleHotKey;
-@property (nonatomic, readwrite, retain) IBOutlet SRRecorderControl *switchMethodHotKey;
-@property (nonatomic, readwrite, retain) NSString *versionString;
-@property (nonatomic, readwrite, retain) NSArrayController *shortcuts;
+@property (nonatomic, readwrite, strong) IBOutlet SRRecorderControl *toggleHotKey;
+@property (nonatomic, readwrite, strong) IBOutlet SRRecorderControl *switchMethodHotKey;
+@property (nonatomic, readwrite, strong) NSString *versionString;
+@property (nonatomic, readwrite, strong) NSArrayController *shortcuts;
 
 - (IBAction) startupOptionClick:(id)sender;
 

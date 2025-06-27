@@ -19,7 +19,6 @@
     if (current == nil) {
         current = [[PTKeyCodeTranslator alloc] initWithKeyboardLayout:currentLayout];
     } else if ([current keyboardLayout] != currentLayout) {
-        [current release];
         current = [[PTKeyCodeTranslator alloc] initWithKeyboardLayout:currentLayout];
     }
 
@@ -45,8 +44,6 @@
 - (void)dealloc
 {
 	CFRelease(keyboardLayout);
-
-	[super dealloc];
 }
 
 - (NSString *)translateKeyCode:(short)keyCode {
@@ -61,12 +58,8 @@
 }
 
 - (NSString *)description {
-    NSString *kind;
-    kind = @"uchr";
-
-    NSString *layoutName;
-    layoutName = TISGetInputSourceProperty( keyboardLayout, kTISPropertyLocalizedName );
+    NSString *kind = @"uchr";
+    NSString *layoutName = (__bridge NSString *)TISGetInputSourceProperty(keyboardLayout, kTISPropertyLocalizedName);
     return [NSString stringWithFormat:@"PTKeyCodeTranslator layout=%@ (%@)", layoutName, kind];
 }
-
 @end

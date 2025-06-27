@@ -40,16 +40,17 @@
 
 CWL_DECLARE_SINGLETON_FOR_CLASS(AppData)
 
-@property (readwrite,assign) NSUserDefaults *userPrefs;
-@property (readwrite,assign) KeyCombo toggleCombo;
-@property (readwrite,assign) KeyCombo switchMethodCombo;
-@property (readwrite,assign) NSMutableArray *shortcuts;
-@property (readwrite,assign) NSMutableDictionary *shortcutDictionary;
-@property (readwrite,assign) NSMutableDictionary *excludedApps;
+// Use 'strong' for object types
+@property (readwrite, strong) NSUserDefaults *userPrefs;
+@property (readwrite, assign) KeyCombo toggleCombo;
+@property (readwrite, assign) KeyCombo switchMethodCombo;
+@property (readwrite, strong) NSMutableArray *shortcuts;
+@property (readwrite, strong) NSMutableDictionary *shortcutDictionary;
+@property (readwrite, strong) NSMutableDictionary *excludedApps;
 
-+ (void) loadUserPrefs;
-+ (void) loadHotKeys;
-+ (void) loadShortcuts;
-+ (void) loadExcludedApps;
++ (void)loadUserPrefs;
++ (void)loadHotKeys;
++ (void)loadShortcuts;
++ (void)loadExcludedApps;
 
 @end

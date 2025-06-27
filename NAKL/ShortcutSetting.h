@@ -23,7 +23,7 @@
     NSString *text;
 }
 
-@property (nonatomic, readwrite, retain) NSString *shortcut;
-@property (nonatomic, readwrite, retain) NSString *text;
+@property (nonatomic, readwrite, strong) NSString *shortcut;
+@property (nonatomic, readwrite, strong) NSString *text;
 
 @end

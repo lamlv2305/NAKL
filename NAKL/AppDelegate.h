@@ -33,7 +33,7 @@ typedef enum {
 
 @interface AppDelegate : NSObject <NSApplicationDelegate> {
     PreferencesController *preferencesController; 
-    NSWindow *_window;
+//    __weak NSWindow *_window;
     IBOutlet NSMenu *statusMenu;
     NSStatusItem * statusItem;    
     NSImage *viStatusImage;
@@ -49,8 +49,8 @@ typedef enum {
 - (void) updateStatusItem;
 - (void) updateCheckedItem;
 
-@property (assign) IBOutlet NSWindow *window;
-@property (assign) CFMachPortRef eventTap;    
-@property (retain) PreferencesController *preferencesController;
+@property (weak) IBOutlet NSWindow *window;
+@property (assign) CFMachPortRef eventTap;
+@property (strong) PreferencesController *preferencesController;
 
 @end

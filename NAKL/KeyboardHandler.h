@@ -37,7 +37,7 @@
 @property(nonatomic) int kbBLength; 
 @property(nonatomic) int kbPLength;
 @property(nonatomic) int kbMethod;
-@property(nonatomic, retain) NSArray *vowelsMap;
+@property(nonatomic, strong) NSArray *vowelsMap;
 
 - (id)init;
 - (void) mapToCharset:(ushort*)w :(int)count;

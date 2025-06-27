@@ -21,7 +21,7 @@
 
 @implementation AppDelegate
 
-@synthesize window = _window;
+//@synthesize window = _window;
 @synthesize preferencesController;
 @synthesize eventTap;
 
@@ -104,7 +104,7 @@ static bool frontmostAppApiCompatible = false;
 
 -(void)awakeFromNib {
     [super awakeFromNib];
-    statusItem = [[[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength] retain];
+    statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
     [statusItem setMenu:statusMenu];
     [statusItem setAction:@selector(menuItemClicked)];
     [statusItem setHighlightMode: YES];
@@ -164,7 +164,7 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
             break;
             
         case kCGEventTapDisabledByTimeout:
-            CGEventTapEnable(((AppDelegate*) refcon).eventTap , TRUE);
+            CGEventTapEnable(((__bridge AppDelegate*) refcon).eventTap , TRUE);
             break;
             
         case kCGEventKeyDown:
@@ -181,8 +181,8 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
                         kbHandler.kbMethod = VKM_OFF;
                     }
                     
-                    [((AppDelegate*) refcon) updateCheckedItem];
-                    [((AppDelegate*) refcon) updateStatusItem];
+                  [((__bridge AppDelegate*) refcon) updateCheckedItem];
+                  [((__bridge AppDelegate*) refcon) updateStatusItem];
                     validShortcut = true;
                 }
                 
@@ -195,8 +195,8 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
                     
                     if (kbHandler.kbMethod != VKM_OFF) {
                         [[AppData sharedAppData].userPrefs setValue:[NSNumber numberWithInt:kbHandler.kbMethod] forKey:NAKL_KEYBOARD_METHOD];
-                        [((AppDelegate*) refcon) updateCheckedItem];
-                        [((AppDelegate*) refcon) updateStatusItem];
+                      [((__bridge AppDelegate*) refcon) updateCheckedItem];
+                      [((__bridge AppDelegate*) refcon) updateStatusItem];
                     }
                     validShortcut = true;
                 }
@@ -300,7 +300,7 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
     
     if (AXIsProcessTrustedWithOptions != NULL) {
         // For macOS 10.9 and later - check without prompting first
-        NSDictionary *options = @{(id) kAXTrustedCheckOptionPrompt: @NO};
+      NSDictionary *options = @{(__bridge id) kAXTrustedCheckOptionPrompt: @NO};
         accessibilityEnabled = AXIsProcessTrustedWithOptions((CFDictionaryRef)options);
         NSLog(@"Accessibility permissions check (modern): %@", accessibilityEnabled ? @"GRANTED" : @"DENIED");
     } else {
@@ -323,7 +323,6 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
             [alert addButtonWithTitle:@"Quit"];
             
             NSModalResponse response = [alert runModal];
-            [alert release];
             
             if (response == NSAlertFirstButtonReturn) {
                 // Open System Preferences to Accessibility panel
@@ -349,7 +348,7 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
                  );
     
     eventTap = CGEventTapCreate(kCGSessionEventTap, kCGHeadInsertEventTap, 0,
-                                eventMask, KeyHandler, self);
+                                eventMask, KeyHandler, (__bridge void * _Nullable)(self));
     if (!eventTap) {
         NSLog(@"Failed to create event tap. This usually means accessibility permissions are not properly granted.");
         NSLog(@"Bundle identifier: %@", [[NSBundle mainBundle] bundleIdentifier]);
@@ -364,7 +363,6 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
             [alert addButtonWithTitle:@"Quit"];
             
             NSModalResponse response = [alert runModal];
-            [alert release];
             
             if (response == NSAlertFirstButtonReturn) {
                 [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"]];
@@ -391,7 +389,7 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
     BOOL accessibilityEnabled = NO;
     
     if (AXIsProcessTrustedWithOptions != NULL) {
-        NSDictionary *options = @{(id) kAXTrustedCheckOptionPrompt: @NO};
+      NSDictionary *options = @{(__bridge id) kAXTrustedCheckOptionPrompt: @NO};
         accessibilityEnabled = AXIsProcessTrustedWithOptions((CFDictionaryRef)options);
     } else {
         accessibilityEnabled = AXAPIEnabled();
@@ -479,11 +477,6 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
     CFRunLoopRef rl = (CFRunLoopRef)CFRunLoopGetCurrent();
     CFRunLoopStop(rl);
     [NSApp terminate:self];
-}
-
-- (void)dealloc {
-    [preferencesController release];
-    [super dealloc];
 }
 
 @end

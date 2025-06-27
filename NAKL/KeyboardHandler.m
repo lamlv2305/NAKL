@@ -493,8 +493,4 @@ bool hasSpaceBar = false;
     return p;
 }
 
-- (void) dealloc {
-    [super dealloc];
-}
-
 @end

@@ -37,8 +37,8 @@
 - (id) initWithCoder:(NSCoder *)coder {
     if ((self = [super init]))
     {
-        self.shortcut = [[coder decodeObjectForKey:@"shortcut"] retain];
-        self.text = [[coder decodeObjectForKey:@"text"] retain];
+        self.shortcut = [coder decodeObjectForKey:@"shortcut"];
+        self.text = [coder decodeObjectForKey:@"text"];
     }
     return self;
 }

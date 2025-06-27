@@ -23,7 +23,7 @@
 
 @implementation ShortcutTableViewController
 
-@synthesize list;
+@synthesize list = list;
 
 - (id)init
 {
@@ -59,7 +59,6 @@
     [[AppData sharedAppData].shortcuts addObject:shortcut];
     [tableView reloadData];
     [tableView editColumn:0 row:([[AppData sharedAppData].shortcuts count] - 1) withEvent:nil select:YES];
-    [shortcut release];
 }
 
 - (IBAction)remove:(id)sender
@@ -70,11 +69,6 @@
         [[AppData sharedAppData].shortcuts removeObjectAtIndex:row];
     }
     [tableView reloadData];
-}
-
-- (void) dealloc
-{
-    [super dealloc];
 }
 
 @end

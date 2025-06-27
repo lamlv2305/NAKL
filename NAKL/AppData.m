@@ -42,25 +42,29 @@ CWL_SYNTHESIZE_SINGLETON_FOR_CLASS(AppData);
     NSDictionary *dictionary = [[AppData sharedAppData].userPrefs dictionaryForKey:NAKL_TOGGLE_HOTKEY];
     PTKeyCombo *keyCombo = [[PTKeyCombo alloc] initWithPlistRepresentation:dictionary];
     [AppData sharedAppData].toggleCombo = SRMakeKeyCombo([keyCombo keyCode], [keyCombo modifiers]);
-    [keyCombo release];
 
     dictionary = [[AppData sharedAppData].userPrefs dictionaryForKey:NAKL_SWITCH_METHOD_HOTKEY];
     keyCombo = [[PTKeyCombo alloc] initWithPlistRepresentation:dictionary];
     [AppData sharedAppData].switchMethodCombo = SRMakeKeyCombo([keyCombo keyCode], [keyCombo modifiers]);
-    [keyCombo release];    
 }
 
-+ (void) loadShortcuts
++ (void)loadShortcuts
 {
     NSString *filePath = [[[NSFileManager defaultManager] applicationSupportDirectory] stringByAppendingPathComponent:@"shortcuts.setting"];
-    NSData *data = [NSKeyedUnarchiver unarchiveObjectWithFile:filePath];     
-    [AppData sharedAppData].shortcuts = [[NSMutableArray alloc] init];    
+    NSData *data = [NSData dataWithContentsOfFile:filePath];
+    [AppData sharedAppData].shortcuts = [[NSMutableArray alloc] init];
     [AppData sharedAppData].shortcutDictionary = [[NSMutableDictionary alloc] init];
 
     if (data != nil) {
-        NSArray *savedArray = [NSKeyedUnarchiver unarchiveObjectWithData:data];
+        NSError *error = nil;
+        NSArray<ShortcutSetting *> *savedArray = [NSKeyedUnarchiver unarchivedObjectOfClasses:
+                                                  [NSSet setWithObjects:[NSArray class], [ShortcutSetting class], nil]
+                                                  fromData:data
+                                                  error:&error];
         if (savedArray != nil) {
             [[AppData sharedAppData].shortcuts setArray:savedArray];
+        } else {
+            NSLog(@"Failed to unarchive shortcuts: %@", error);
         }
     }
 
@@ -68,6 +72,7 @@ CWL_SYNTHESIZE_SINGLETON_FOR_CLASS(AppData);
         [[AppData sharedAppData].shortcutDictionary setObject:s.text forKey:s.shortcut];
     }
 }
+
 
 + (void) loadExcludedApps
 {

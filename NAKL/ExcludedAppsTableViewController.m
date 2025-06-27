@@ -46,14 +46,15 @@
     [dialog setCanChooseFiles:YES];
     [dialog setAllowsMultipleSelection:YES];
     [dialog setCanChooseDirectories:NO];
-    [dialog setDirectory:@"/Applications"];
+    [dialog setDirectoryURL:[NSURL fileURLWithPath:@"/Applications"]];
 
-    if ([dialog runModal] == NSOKButton) {
-        NSArray* selectedPaths = [dialog filenames];
-        for (NSString* path in selectedPaths) {
-            NSDictionary* plistData = [NSDictionary dictionaryWithContentsOfFile:[path stringByAppendingString:@"/Contents/Info.plist"]];
-            NSString *appBundleIdentifier = [plistData valueForKeyPath:@"CFBundleIdentifier"];
-            NSString *appName = [plistData valueForKeyPath:@"CFBundleName"];
+    if ([dialog runModal] == NSModalResponseOK) {
+        NSArray<NSURL *> *selectedURLs = [dialog URLs];
+        for (NSURL *url in selectedURLs) {
+            NSString *path = [url path];
+            NSDictionary *plistData = [NSDictionary dictionaryWithContentsOfFile:[path stringByAppendingPathComponent:@"Contents/Info.plist"]];
+            NSString *appBundleIdentifier = plistData[@"CFBundleIdentifier"];
+            NSString *appName = plistData[@"CFBundleName"];
             if ((appName == nil) || [appName isEqualToString:@""]) {
                 appName = [[path lastPathComponent] stringByDeletingPathExtension];
             }
@@ -78,11 +79,5 @@
     [tableView reloadData];
     [[AppData sharedAppData].userPrefs setObject:[AppData sharedAppData].excludedApps forKey:NAKL_EXCLUDED_APPS];
 }
-
-- (void) dealloc
-{
-    [super dealloc];
-}
-
 
 @end

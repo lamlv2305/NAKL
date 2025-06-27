@@ -49,11 +49,12 @@ NSString * SRStringForKeyCode( NSInteger keyCode )
 //---------------------------------------------------------- 
 NSString * SRStringForCarbonModifierFlags( NSUInteger flags )
 {
-    NSString *modifierFlagsString = [NSString stringWithFormat:@"%@%@%@%@", 
-		( flags & controlKey ? [NSString stringWithFormat:@"%C", KeyboardControlGlyph] : @"" ),
-		( flags & optionKey ? [NSString stringWithFormat:@"%C", KeyboardOptionGlyph] : @"" ),
-		( flags & shiftKey ? [NSString stringWithFormat:@"%C", KeyboardShiftGlyph] : @"" ),
-		( flags & cmdKey ? [NSString stringWithFormat:@"%C", KeyboardCommandGlyph] : @"" )];
+  NSString *modifierFlagsString = [NSString stringWithFormat:@"%@%@%@%@",
+      ( flags & controlKey ? [NSString stringWithFormat:@"%C", (unichar)KeyboardControlGlyph] : @"" ),
+      ( flags & optionKey  ? [NSString stringWithFormat:@"%C", (unichar)KeyboardOptionGlyph]  : @"" ),
+      ( flags & shiftKey   ? [NSString stringWithFormat:@"%C", (unichar)KeyboardShiftGlyph]   : @"" ),
+      ( flags & cmdKey     ? [NSString stringWithFormat:@"%C", (unichar)KeyboardCommandGlyph] : @"" )
+  ];
 	return modifierFlagsString;
 }
 
@@ -70,16 +71,18 @@ NSString * SRStringForCarbonModifierFlagsAndKeyCode( NSUInteger flags, NSInteger
 //---------------------------------------------------------- 
 // SRStringForCocoaModifierFlags()
 //---------------------------------------------------------- 
-NSString * SRStringForCocoaModifierFlags( NSUInteger flags )
+NSString * SRStringForCocoaModifierFlags(NSUInteger flags)
 {
-    NSString *modifierFlagsString = [NSString stringWithFormat:@"%@%@%@%@", 
-		( flags & NSControlKeyMask ? [NSString stringWithFormat:@"%C", KeyboardControlGlyph] : @"" ),
-		( flags & NSAlternateKeyMask ? [NSString stringWithFormat:@"%C", KeyboardOptionGlyph] : @"" ),
-		( flags & NSShiftKeyMask ? [NSString stringWithFormat:@"%C", KeyboardShiftGlyph] : @"" ),
-		( flags & NSCommandKeyMask ? [NSString stringWithFormat:@"%C", KeyboardCommandGlyph] : @"" )];
-	
-	return modifierFlagsString;
+    NSString *modifierFlagsString = [NSString stringWithFormat:@"%@%@%@%@",
+        ( flags & NSEventModifierFlagControl ? [NSString stringWithFormat:@"%C", (unichar)KeyboardControlGlyph] : @"" ),
+        ( flags & NSEventModifierFlagOption  ? [NSString stringWithFormat:@"%C", (unichar)KeyboardOptionGlyph]  : @"" ),
+        ( flags & NSEventModifierFlagShift   ? [NSString stringWithFormat:@"%C", (unichar)KeyboardShiftGlyph]   : @"" ),
+        ( flags & NSEventModifierFlagCommand ? [NSString stringWithFormat:@"%C", (unichar)KeyboardCommandGlyph] : @"" )
+    ];
+    
+    return modifierFlagsString;
 }
+
 
 //---------------------------------------------------------- 
 // SRStringForCocoaModifierFlagsAndKeyCode()
