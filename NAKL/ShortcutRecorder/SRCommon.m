@@ -244,11 +244,11 @@ CGFloat SRAnimationEaseInOut(CGFloat t) {
 + (NSAlert *) alertWithNonRecoverableError:(NSError *)error;
 {
 	NSString *reason = [error localizedRecoverySuggestion];
-	return [self alertWithMessageText:[error localizedDescription]
-						defaultButton:[[error localizedRecoveryOptions] objectAtIndex:0U]
-					  alternateButton:nil
-						  otherButton:nil
-			informativeTextWithFormat:(reason ? reason : @"")];
+	NSAlert *alert = [[NSAlert alloc] init];
+	alert.messageText = [error localizedDescription];
+	alert.informativeText = (reason ? reason : @"");
+	[alert addButtonWithTitle:[[error localizedRecoveryOptions] objectAtIndex:0U]];
+	return alert;
 }
 
 @end

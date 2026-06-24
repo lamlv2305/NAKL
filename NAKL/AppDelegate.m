@@ -123,7 +123,6 @@ static NSString *gActiveAppBundleId = nil;
     [super awakeFromNib];
     statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
     [statusItem setMenu:statusMenu];
-    [statusItem setAction:@selector(menuItemClicked)];
 
 
     NSSize imageSize;

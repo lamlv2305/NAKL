@@ -3,6 +3,7 @@
 #import "PTHotKeyCenter.h"
 #import "PTHotKey.h"
 #import "NSFileManager+DirectoryLocations.h"
+#import <ServiceManagement/ServiceManagement.h>
 
 @implementation PreferencesController
 
@@ -49,7 +50,12 @@
     }
 }
 
+// Legacy login-item helpers for macOS 11 / 12, which predate SMAppService.
+// LSSharedFileList is deprecated; the warnings are intentionally suppressed
+// here because this is the documented fallback path only.
 - (void)addAppsAsLoginItem {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     NSString *appPath = [[NSBundle mainBundle] bundlePath];
     NSURL *url = [NSURL fileURLWithPath:appPath];
 
@@ -64,11 +70,13 @@
         }
         CFRelease(loginItems);
     }
+#pragma clang diagnostic pop
 }
 
 - (void)removeAppFromLoginItem {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     NSString *appPath = [[NSBundle mainBundle] bundlePath];
-    NSURL *targetURL = [NSURL fileURLWithPath:appPath];
 
     LSSharedFileListRef loginItems = LSSharedFileListCreate(NULL,
         kLSSharedFileListSessionLoginItems, NULL);
@@ -89,17 +97,32 @@
         }
         CFRelease(loginItems);
     }
+#pragma clang diagnostic pop
 }
 
 - (IBAction)startupOptionClick:(id)sender {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    if (((NSButton *)sender).state == NSControlStateValueOn) {
+    BOOL enable = (((NSButton *)sender).state == NSControlStateValueOn);
+
+    // macOS 13+: register the main app itself as a login item via the modern,
+    // non-deprecated ServiceManagement API (no helper bundle required).
+    if (@available(macOS 13.0, *)) {
+        NSError *error = nil;
+        BOOL ok = enable
+            ? [[SMAppService mainAppService] registerAndReturnError:&error]
+            : [[SMAppService mainAppService] unregisterAndReturnError:&error];
+        if (!ok || error) {
+            NSLog(@"Login item %@ failed: %@",
+                  enable ? @"register" : @"unregister", error);
+        }
+        return;
+    }
+
+    // macOS 11 / 12 fallback.
+    if (enable) {
         [self addAppsAsLoginItem];
     } else {
         [self removeAppFromLoginItem];
     }
-#pragma clang diagnostic pop
 }
 
 - (void)saveSetting {
