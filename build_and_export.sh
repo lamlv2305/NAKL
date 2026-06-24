@@ -9,9 +9,9 @@ echo "Building NAKL for distribution..."
 echo "Cleaning previous builds..."
 xcodebuild clean -project NAKL.xcodeproj -configuration Release
 
-# Build the app
+# Build the app (universal: arm64 + x86_64)
 echo "Building app..."
-xcodebuild build -project NAKL.xcodeproj -configuration Release -arch x86_64
+xcodebuild build -project NAKL.xcodeproj -configuration Release ONLY_ACTIVE_ARCH=NO
 
 # Check if build was successful
 if [ $? -eq 0 ]; then

@@ -94,7 +94,7 @@
 - (IBAction)startupOptionClick:(id)sender {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    if (((NSButton *)sender).state == NSOnState) {
+    if (((NSButton *)sender).state == NSControlStateValueOn) {
         [self addAppsAsLoginItem];
     } else {
         [self removeAppFromLoginItem];
