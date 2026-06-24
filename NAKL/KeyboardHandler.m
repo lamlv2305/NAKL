@@ -400,7 +400,16 @@ bool hasSpaceBar = false;
     ushort cc;
     modifier_t *m = modes[ self.kbMethod - 1 ];
     vietcode_t *v = NULL;
-    
+
+    /* Guard against word buffer overflow. Without this, typing a run of
+       WORDSIZE+ characters with no space/separator writes past word[] and
+       corrupts adjacent memory -> random crash. Reset and treat as new word. */
+    if( count >= WORDSIZE - 1 ) {
+        [self clearBuffer];
+        [self append:c:key];
+        return -1;
+    }
+
     if( !count || tempoff ) {
         [self append:c:key];
         return -1;

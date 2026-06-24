@@ -37,7 +37,12 @@ KeyboardHandler *kbHandler;
 
 static char rk = 0;
 bool dirty;
-static bool frontmostAppApiCompatible = false;
+
+/* Frontmost app bundle id, cached. Updated on the main thread via
+   NSWorkspace activation notifications. The event tap callback must NOT call
+   NSWorkspace itself: that is main-thread-only AppKit and querying it on every
+   keystroke is slow + crashes intermittently on modern macOS. */
+static NSString *gActiveAppBundleId = nil;
 
 #pragma mark Initialization
 
@@ -47,13 +52,9 @@ static bool frontmostAppApiCompatible = false;
     NSMutableDictionary *appDefs = [NSMutableDictionary dictionary];
     [appDefs setObject:[NSNumber numberWithInt:1] forKey:NAKL_KEYBOARD_METHOD];
     [defaults registerDefaults:appDefs];
-    
-    if (floor(NSAppKitVersionNumber) >= NSAppKitVersionNumber10_7) {
-        frontmostAppApiCompatible = true;
-    }
-    
-    // Note: We'll check accessibility permissions when creating the event tap
-    // This allows for proper permission prompting on modern macOS versions
+
+    // Accessibility permissions are checked when creating the event tap,
+    // which allows proper permission prompting on modern macOS.
 }
 
 - (void)applicationWillFinishLaunching:(NSNotification *)aNotification
@@ -74,7 +75,16 @@ static bool frontmostAppApiCompatible = false;
     
     kbHandler = [[KeyboardHandler alloc] init];
     kbHandler.kbMethod = method;
-    
+
+    // Track the frontmost app on the main thread so the event tap callback can
+    // read a cached bundle id instead of calling NSWorkspace per keystroke.
+    gActiveAppBundleId = [[NSWorkspace sharedWorkspace] frontmostApplication].bundleIdentifier;
+    [[[NSWorkspace sharedWorkspace] notificationCenter]
+        addObserver:self
+           selector:@selector(activeAppChanged:)
+               name:NSWorkspaceDidActivateApplicationNotification
+             object:nil];
+
     // Delay the event loop creation slightly to ensure proper initialization
     // This is especially important for standalone apps
     [self performSelector:@selector(startEventLoop) withObject:nil afterDelay:0.5];
@@ -82,9 +92,16 @@ static bool frontmostAppApiCompatible = false;
     [self updateStatusItem];
 }
 
+- (void)activeAppChanged:(NSNotification *)note {
+    NSRunningApplication *app = note.userInfo[NSWorkspaceApplicationKey];
+    gActiveAppBundleId = app.bundleIdentifier;
+}
+
 - (void)startEventLoop {
-    NSLog(@"Starting event loop in background...");
-    [self performSelectorInBackground:@selector(eventLoop) withObject:nil];
+    NSLog(@"Starting event loop on main thread...");
+    // Run on the main thread. The event tap callback calls AppKit, which is
+    // main-thread-only; a background CFRunLoop caused intermittent crashes.
+    [self eventLoop];
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
@@ -107,9 +124,8 @@ static bool frontmostAppApiCompatible = false;
     statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
     [statusItem setMenu:statusMenu];
     [statusItem setAction:@selector(menuItemClicked)];
-    [statusItem setHighlightMode: YES];
-    
-    
+
+
     NSSize imageSize;
     imageSize.width = 16;
     imageSize.height = 16;
@@ -131,15 +147,9 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
     UniChar chars[3];
     UniChar *x;
     long i;
-    NSString *activeAppBundleId;
-    
-    if (frontmostAppApiCompatible) {
-        NSRunningApplication *activeApp = [[NSWorkspace sharedWorkspace] frontmostApplication];
-        activeAppBundleId = [activeApp bundleIdentifier];
-    } else {
-        NSDictionary *activeApp = [[NSWorkspace sharedWorkspace] activeApplication];
-        activeAppBundleId = [activeApp objectForKey:@"NSApplicationBundleIdentifier"];
-    }
+
+    /* Read cached value; do not touch NSWorkspace from the tap callback. */
+    NSString *activeAppBundleId = gActiveAppBundleId;
 
     uint64_t flag = CGEventGetFlags(event);
     
@@ -164,6 +174,9 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
             break;
             
         case kCGEventTapDisabledByTimeout:
+        case kCGEventTapDisabledByUserInput:
+            // macOS disables the tap if the callback is too slow OR on certain
+            // user input; re-enable in both cases or the app silently stops.
             CGEventTapEnable(((__bridge AppDelegate*) refcon).eventTap , TRUE);
             break;
             
@@ -296,19 +309,10 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
     NSLog(@"Starting event loop - checking accessibility permissions...");
     
     // Check accessibility permissions first WITHOUT prompting
-    BOOL accessibilityEnabled = NO;
-    
-    if (AXIsProcessTrustedWithOptions != NULL) {
-        // For macOS 10.9 and later - check without prompting first
-      NSDictionary *options = @{(__bridge id) kAXTrustedCheckOptionPrompt: @NO};
-        accessibilityEnabled = AXIsProcessTrustedWithOptions((CFDictionaryRef)options);
-        NSLog(@"Accessibility permissions check (modern): %@", accessibilityEnabled ? @"GRANTED" : @"DENIED");
-    } else {
-        // For older macOS versions
-        accessibilityEnabled = AXAPIEnabled();
-        NSLog(@"Accessibility permissions check (legacy): %@", accessibilityEnabled ? @"GRANTED" : @"DENIED");
-    }
-    
+    NSDictionary *options = @{(__bridge id) kAXTrustedCheckOptionPrompt: @NO};
+    BOOL accessibilityEnabled = AXIsProcessTrustedWithOptions((CFDictionaryRef)options);
+    NSLog(@"Accessibility permissions check: %@", accessibilityEnabled ? @"GRANTED" : @"DENIED");
+
     if (!accessibilityEnabled) {
         NSLog(@"NAKL requires accessibility permissions to function properly.");
         NSLog(@"Showing one-time setup dialog to user...");
@@ -379,27 +383,23 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
     NSLog(@"Event tap created successfully. NAKL is now active.");
     
     runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0);
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
+    CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, kCFRunLoopCommonModes);
     CGEventTapEnable(eventTap, true);
-    CFRunLoopRun();
+    if (runLoopSource) CFRelease(runLoopSource);
+    // No CFRunLoopRun() here: the main run loop (NSApplicationMain) is already
+    // running and now drives the tap.
 }
 
 - (void) retryEventTapCreation {
     // Check if accessibility permissions have been granted (without prompting)
-    BOOL accessibilityEnabled = NO;
-    
-    if (AXIsProcessTrustedWithOptions != NULL) {
-      NSDictionary *options = @{(__bridge id) kAXTrustedCheckOptionPrompt: @NO};
-        accessibilityEnabled = AXIsProcessTrustedWithOptions((CFDictionaryRef)options);
-    } else {
-        accessibilityEnabled = AXAPIEnabled();
-    }
-    
+    NSDictionary *options = @{(__bridge id) kAXTrustedCheckOptionPrompt: @NO};
+    BOOL accessibilityEnabled = AXIsProcessTrustedWithOptions((CFDictionaryRef)options);
+
     NSLog(@"Retry permission check: %@", accessibilityEnabled ? @"GRANTED" : @"DENIED");
     
     if (accessibilityEnabled && !eventTap) {
         NSLog(@"Accessibility permissions granted, attempting to create event tap...");
-        [self performSelectorInBackground:@selector(eventLoop) withObject:nil];
+        [self eventLoop];
     } else if (!accessibilityEnabled) {
         // Schedule another check in 3 seconds (without showing alerts)
         NSLog(@"Still waiting for accessibility permissions...");
@@ -421,11 +421,11 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
     switch (method) {
         case VKM_VNI:
         case VKM_TELEX:
-            [statusItem setImage:viStatusImage];
+            statusItem.button.image = viStatusImage;
             break;
-            
+
         default:
-            [statusItem setImage:enStatusImage];
+            statusItem.button.image = enStatusImage;
             break;
     }
 }
@@ -441,10 +441,10 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
 
 - (IBAction) methodSelected:(id)sender {
     for (id object in [statusMenu itemArray]) {
-        [(NSMenuItem*) object setState:NSOffState];
+        [(NSMenuItem*) object setState:NSControlStateValueOff];
     }
     
-    [(NSMenuItem*) sender setState:NSOnState];
+    [(NSMenuItem*) sender setState:NSControlStateValueOn];
     
     int method;
     
@@ -472,10 +472,10 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
 
 #pragma mark -
 
-- (IBAction) quit:(id)sender 
+- (IBAction) quit:(id)sender
 {
-    CFRunLoopRef rl = (CFRunLoopRef)CFRunLoopGetCurrent();
-    CFRunLoopStop(rl);
+    // Tap now runs on the main run loop; just terminate. Stopping the main
+    // loop here would interfere with normal teardown.
     [NSApp terminate:self];
 }
 
