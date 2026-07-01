@@ -194,8 +194,11 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
                         kbHandler.kbMethod = VKM_OFF;
                     }
                     
-                  [((__bridge AppDelegate*) refcon) updateCheckedItem];
-                  [((__bridge AppDelegate*) refcon) updateStatusItem];
+                    AppDelegate *appDelegate = (__bridge AppDelegate*) refcon;
+                    dispatch_async(dispatch_get_main_queue(), ^{
+                        [appDelegate updateCheckedItem];
+                        [appDelegate updateStatusItem];
+                    });
                     validShortcut = true;
                 }
                 
@@ -208,8 +211,11 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
                     
                     if (kbHandler.kbMethod != VKM_OFF) {
                         [[AppData sharedAppData].userPrefs setValue:[NSNumber numberWithInt:kbHandler.kbMethod] forKey:NAKL_KEYBOARD_METHOD];
-                      [((__bridge AppDelegate*) refcon) updateCheckedItem];
-                      [((__bridge AppDelegate*) refcon) updateStatusItem];
+                        AppDelegate *appDelegate = (__bridge AppDelegate*) refcon;
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            [appDelegate updateCheckedItem];
+                            [appDelegate updateStatusItem];
+                        });
                     }
                     validShortcut = true;
                 }
