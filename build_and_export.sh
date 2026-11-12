@@ -42,7 +42,7 @@ if [ $? -eq 0 ]; then
         echo "You can now run the app from: $APP_PATH"
         echo ""
         echo "IMPORTANT NOTES:"
-        echo "1. Make sure to grant accessibility permissions when prompted"
+        echo "1. Grant permission in System Settings > Privacy & Security > Device Control and Data Access (Accessibility on macOS 26 and earlier)"
         echo "2. If the app doesn't work, check Console.app for NAKL logs"
         echo "3. You may need to sign the app with your developer certificate for distribution"
         

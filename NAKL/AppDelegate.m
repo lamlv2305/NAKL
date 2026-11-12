@@ -327,15 +327,15 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
         dispatch_async(dispatch_get_main_queue(), ^{
             NSAlert *alert = [[NSAlert alloc] init];
             [alert setMessageText:@"Welcome to NAKL"];
-            [alert setInformativeText:@"NAKL is a Vietnamese keyboard input method that needs permission to monitor keyboard events.\n\nTo enable NAKL:\n\n1. Click 'Open System Preferences' below\n2. Go to Security & Privacy → Privacy → Accessibility\n3. Click the lock icon and enter your password\n4. Find NAKL in the list and check the box next to it\n\nNAKL will start working automatically once you enable it."];
-            [alert addButtonWithTitle:@"Open System Preferences"];
+            [alert setInformativeText:@"NAKL is a Vietnamese keyboard input method that needs permission to monitor keyboard events.\n\nTo enable NAKL:\n\n1. Click 'Open System Settings' below\n2. Go to Privacy & Security → Device Control and Data Access\n   (called \"Accessibility\" on macOS 26 and earlier)\n3. Turn on the switch next to NAKL\n   (if NAKL is not in the list, click + and add it from Applications)\n4. Enter your password or use Touch ID if asked\n\nNAKL will start working automatically once you enable it."];
+            [alert addButtonWithTitle:@"Open System Settings"];
             [alert addButtonWithTitle:@"I'll Do It Later"];
             [alert addButtonWithTitle:@"Quit"];
             
             NSModalResponse response = [alert runModal];
             
             if (response == NSAlertFirstButtonReturn) {
-                // Open System Preferences to Accessibility panel
+                // Open System Settings to Device Control and Data Access (Accessibility) panel
                 [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"]];
                 // Start checking for permission in background
                 [self performSelector:@selector(retryEventTapCreation) withObject:nil afterDelay:3.0];
@@ -367,8 +367,8 @@ CGEventRef KeyHandler(CGEventTapProxy proxy, CGEventType type, CGEventRef event,
         dispatch_async(dispatch_get_main_queue(), ^{
             NSAlert *alert = [[NSAlert alloc] init];
             [alert setMessageText:@"Permission Issue"];
-            [alert setInformativeText:@"NAKL still can't access keyboard events. This usually means:\n\n• Accessibility permission isn't properly enabled\n• The app needs to be restarted after enabling permission\n• macOS needs a moment to apply the changes\n\nPlease check System Preferences again and restart NAKL if needed."];
-            [alert addButtonWithTitle:@"Open System Preferences"];
+            [alert setInformativeText:@"NAKL still can't access keyboard events. This usually means:\n\n• Accessibility permission isn't properly enabled\n• The app needs to be restarted after enabling permission\n• macOS needs a moment to apply the changes\n\nPlease check System Settings → Privacy & Security → Device Control and Data Access again and restart NAKL if needed."];
+            [alert addButtonWithTitle:@"Open System Settings"];
             [alert addButtonWithTitle:@"Retry Now"];
             [alert addButtonWithTitle:@"Quit"];
             
